@@ -18,74 +18,74 @@ class CaptureManager(object):
         self._framesElapsed = 0
         self._fpsEstimate = None
 
-@property
-def channel(self):
-    return self._channel
+    @property
+    def channel(self):
+        return self._channel
 
-@channel.setter
-def channel(self, value):
-    if self._channel != value:
-        self._channel = value
-        self._frame = None
+    @channel.setter
+    def channel(self, value):
+        if self._channel != value:
+            self._channel = value
+            self._frame = None
 
-@property
-def frame(self):
-    if self._enteredFrame and self._frame is None:
-        _, self._frame = self._capture.retrieve(self._frame, self._channel)
-    return self._frame
+    @property
+    def frame(self):
+        if self._enteredFrame and self._frame is None:
+            _, self._frame = self._capture.retrieve(self._frame, self._channel)
+        return self._frame
 
-@property
-def isWritingImage(self):
-    return self._imageFilename is not None
+    @property
+    def isWritingImage(self):
+        return self._imageFilename is not None
 
-@property
-def isWritingVideo(self):
-    return self._videoFilename is not None
+    @property
+    def isWritingVideo(self):
+        return self._videoFilename is not None
 
-def enterFrame(self):
-    """Capture the new fram, if any."""
-    # but first,check that any previous frame was exited
-    assert not self._enteredFrame,  'previous enterFrame() had no matching exitFrame()'
-    if self._capture is not None:
-        self._enteredFrame = self._capture.grab()
+    def enterFrame(self):
+        """Capture the new fram, if any."""
+        # but first,check that any previous frame was exited
+        assert not self._enteredFrame,  'previous enterFrame() had no matching exitFrame()'
+        if self._capture is not None:
+            self._enteredFrame = self._capture.grab()
 
-def exitFrame(self):
-    """Draw to the window ,write to files .release the frame"""
-    # check whether any grabbed frame is retrievable
-    # the getter may retrieve and cache the frame
-    if self.frame is None:
-        self._enteredFrame = False
-        return
-    # update the fps estimate and related variables
-    if self.framesElapsed == 0:
-        self._startTime = time.time()
-    else:
-        timeElapsed = time.time() - self._startTime
-        self._fpsEstimate = self._frameElapsed / timeElapsed
-    self._framesElapsed += 1
-    # draw to the window ,if any 
-    if self.previewWindowManager is not None:
-        if self.shouldMirrorPreview:
-            mirroredFrame = numpy.fliplr(self._frame)
-            self.previewWindowManager.show(mirroredFrame)
+    def exitFrame(self):
+        """Draw to the window ,write to files .release the frame"""
+        # check whether any grabbed frame is retrievable
+        # the getter may retrieve and cache the frame
+        if self.frame is None:
+            self._enteredFrame = False
+            return
+        # update the fps estimate and related variables
+        if self._framesElapsed == 0:
+            self._startTime = time.time()
         else:
-            self.previewWindowManager.show(self._frame)
+            timeElapsed = time.time() - self._startTime
+            self._fpsEstimate = self._framesElapsed / timeElapsed
+        self._framesElapsed += 1
+        # draw to the window ,if any 
+        if self.previewWindowManager is not None:
+            if self.shouldMirrorPreview:
+                mirroredFrame = numpy.fliplr(self._frame)
+                self.previewWindowManager.show(mirroredFrame)
+            else:
+                self.previewWindowManager.show(self._frame)
 
-    # write to the image file,if any
-    if self.isWritingImage:
-        cv2.imwrite(self._imageFilename, self._frame)
-        self.imageFilename = None
-    # write to the video file, if any
-    if self.isWritingImage:
-        cv2.imwrite(self._imageFilename, self._frame)
+        # write to the image file,if any
+        if self.isWritingImage:
+            cv2.imwrite(self._imageFilename, self._frame)
+            self.imageFilename = None
+        # write to the video file, if any
+        if self.isWritingImage:
+            cv2.imwrite(self._imageFilename, self._frame)
 
-        self._imageFilename = None
-    # write to the video file, if any
-    self._writeVideoFrame()
+            self._imageFilename = None
+        # write to the video file, if any
+        self._writeVideoFrame()
 
-    #release the frame
-    self._frame = None
-    self._enteredFrame = False
+        #release the frame
+        self._frame = None
+        self._enteredFrame = False
 
     def writeImage(self, filename):
         """write the next exited frame to an image file"""
@@ -112,7 +112,30 @@ def exitFrame(self):
                     return
                 else:
                     fps = self._fpsEstimate
-            size = (int(self._capture.get(cv2.CAP_PROP_FRAME_HEIGHT)))
+            size = (int(self._capture.get(cv2.CAP_PROP_FRAME_WIDTH)), int(self._capture.get(cv2.CAP_PROP_FRAME_HEIGHT)))
             self._videoWriter = cv2.VideoWriter(self._videoFilename, self._videoEncoding, fps, size)
         self._videoWriter.write(self._frame)
         
+class WindowManager(object):
+    def __init__(self, windowName, keypressCallback = None):
+        self.keypressCallback = keypressCallback
+        self._windowName = windowName
+        self._isWindowCreated = False
+    def createWindow(self):
+        self._isWindowCreated = True
+
+    @property
+    def isWindowCreated(self):
+        return self._isWindowCreated
+    def createdWindow(self):
+        cv2.namedWindow(self._windowNmae)
+        self._isWindowCreated = True
+    def show(self, frame):
+        cv2.imshow(self._windowName, frame)
+    def destroyWindow(self):
+        cv2.destroyWindow(self._windowName)
+        self._isWindowCreated = False
+    def processEvents(self):
+        keycode = cv2.waitKey(1)
+        if self.keypressCallback is not None and keycode != -1:
+            self.keypressCallback(keycode)
